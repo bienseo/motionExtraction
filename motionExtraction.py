@@ -32,7 +32,7 @@ def getFirstDicom(directoryAddress):
 def dcm2nii_all(directory):
     job_server=pp.Server()
     jobList=[]
-    dicom_source_directories = os.listdir(os.path.join(directory,'dicom'))
+    dicom_source_directories = [x for x in os.listdir(os.path.join(directory,'dicom')) if x != 'log.txt']
     for dicom_source_directory in dicom_source_directories:
         niftiOutDir = os.path.join(directory,dicom_source_directory)
         try:
