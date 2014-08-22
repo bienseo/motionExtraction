@@ -2,10 +2,12 @@
 
 import textwrap
 import dicom
+import shutil
 import re
 import os
 import sys
 import argparse
+import pp
 
 
 # In[83]:
@@ -26,14 +28,49 @@ def getDicomInfo(directory):
                     if re.search('.*ima|.*dcm',singleFile,flags=re.IGNORECASE):
                         return os.path.join('root',singleFile)
 
-def dcm2nii(firstDicomFile,directory):
+def are_there_nifti(firstDicomFile,directory):
+    check_for_nifti = False
+    for root, dirs, files in os.walk(directory):
+        if re.search('REST$',root):
+            for singleFile in files:
+                if re.search('nii.gz$',singleFile,flags=re.IGNORECASE):
+                    check_for_nifti = True
 
-def to3d(firstDicomFile):
-    command = 'to3d -prefix {outputLocation} -tpattern alt+z'
+    return check_for_nifti
+
+def getFirstDicom(directoryAddress):
+    for root,dirs,files in os.walk(directoryAddress):
+        for singleFile in files:
+            if re.search('.*ima|.*dcm',singleFile,flags=re.IGNORECASE):
+                return singleFile
+
+def dcm2nii_all(directory):
+    job_server=pp.Server()
+    jobList=[]
+    dicom_source_directories = os.listdir(os.path.join(directory,'dicom'))
+    for dicom_source_directory in dicom_source_directories:
+        niftiOutDir = os.path.join(directory,dicom_source_directory)
+        os.mkdir(niftiOutDir)
+        firstDicom = getFirstDicom(dicom_source_directory)
+        command = '/ccnc_bin/mricron/dcm2nii \
+                -o {niftiOutDir} {firstDicom}'.format(niftiOutDir=niftiOutDir,
+                        firstDicom=firstDicom)
+        job_server.submit(command)
 
 def main(args):
-    #get first dicom file of the REST directory
-    firstDicomFile=getDicomInfo(args.foldername)
+    firstDicomFile=getDicomInfo(args.foldername)#get first dicom file of the REST directory
+    check_for_nifti = are_there_nifti(firstDicomFile,args.foldername) #TRUE if there are nifti
+
+    #if there is no nifti
+    if not check_for_nifti:
+        #move all directories under 'dicom'
+        os.mkdir(os.path.join(args.foldername,'dicom'))
+        modalityDirectories = [x for x in os.listdir(args.foldername) if x != 'dicom']
+        for directory in modalityDirectories:
+            shutil.move(os.path.join(args,foldername,directory),
+                    os.path.join(args.foldername,'dicom',directory))
+
+    dcm2nii_all(args.foldername)
 
 
 def motionExtraction(directory):
