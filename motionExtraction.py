@@ -34,6 +34,7 @@ def dcm2nii_all(directory):
     dicom_source_directories = [x for x in os.listdir(os.path.join(directory,'dicom')) if x == 'REST' \
             or x == 'DTI' \
             or x == 'DKI' \
+            or 'EP2D_BOLD' in x \
             or x == 'T1']
     for dicom_source_directory in dicom_source_directories:
         niftiOutDir = os.path.join(directory,dicom_source_directory)
