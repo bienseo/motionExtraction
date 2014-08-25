@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 
 pd.options.display.mpl_style = 'default'
 
-# In[83]:
 def are_there_nifti(directory):
     check_for_nifti = False
     for root, dirs, files in os.walk(directory):
@@ -32,7 +31,10 @@ def getFirstDicom(directoryAddress):
 def dcm2nii_all(directory):
     job_server=pp.Server()
     jobList=[]
-    dicom_source_directories = [x for x in os.listdir(os.path.join(directory,'dicom')) if x != 'log.txt']
+    dicom_source_directories = [x for x in os.listdir(os.path.join(directory,'dicom')) if x == 'REST' \
+            or x == 'DTI' \
+            or x == 'DKI' \
+            or x == 'T1']
     for dicom_source_directory in dicom_source_directories:
         niftiOutDir = os.path.join(directory,dicom_source_directory)
         try:
@@ -52,24 +54,32 @@ def dcm2nii_all(directory):
 def run(toDo):
     os.popen(toDo).read()
 
-def main(args):
-    check_for_nifti = are_there_nifti(args.directory) #TRUE if there are nifti
+
+def toNifti(directory):
+    check_for_nifti = are_there_nifti(directory) #TRUE if there are nifti
 
     #if there is no nifti
     if check_for_nifti==False:
         print 'dcm2nii conversion'
-        #move all directories under 'dicom'
+        #move all directories inside 'dicom'
         try:
-            os.mkdir(os.path.join(args.directory,'dicom'))
-            modalityDirectories = [x for x in os.listdir(args.directory) if x != 'dicom' or x != 'log.txt']
-            for directory in modalityDirectories:
-                shutil.move(os.path.join(args.directory,directory),
-                        os.path.join(args.directory,'dicom'))
+            os.mkdir(os.path.join(directory,'dicom'))
+            modalityDirectories = [x for x in os.listdir(directory) if x != 'dicom' \
+                    and x !='log.txt' \
+                    and x !='FREESURFER' \
+                    and x !='fsaverage' \
+                    and x !='lh.EC_average' \
+                    and x !='rh.EC_average']
+            for modality_directory in modalityDirectories:
+                shutil.move(os.path.join(directory,modality_directory),
+                        os.path.join(directory,'dicom'))
         except:
             pass
 
-        dcm2nii_all(args.directory)
+        dcm2nii_all(directory)
 
+def main(args):
+    toNifti(args.directory)
     toAfniFormat(args.directory)
     slice_time_correction(args.directory)
     motionCorrection(args.directory)
