@@ -35,6 +35,7 @@ def dcm2nii_all(directory):
             or x == 'DTI' \
             or x == 'DKI' \
             or 'EP2D_BOLD' in x \
+            or 'RUN' in x \
             or x == 'T1']
     for dicom_source_directory in dicom_source_directories:
         niftiOutDir = os.path.join(directory,dicom_source_directory)
@@ -74,8 +75,12 @@ def toNifti(directory):
             for modality_directory in modalityDirectories:
                 shutil.move(os.path.join(directory,modality_directory),
                         os.path.join(directory,'dicom'))
-        except:
+        except PermissionError as e:
+            print 'Error in the toNifti :',e
             pass
+        else:
+            print 'Error in the toNifti : unknown'
+
 
         dcm2nii_all(directory)
 
@@ -117,6 +122,11 @@ def motionCorrection(directory):
 
 
 def outputArrange(directory):
+    if '.' in directory: #if user has given -dir ./
+        subjName = re.search('[A-Z]{3}\d{2,3}',os.getcwd()).group(0)
+    else:
+        subjName = re.search('[A-Z]{3}\d{2,3}',directory).group(0)
+
     df = pd.read_csv(os.path.join(directory,
         'REST','reg_param.txt'),
         sep='\s+',
@@ -133,7 +143,8 @@ def outputArrange(directory):
     df.abs().describe().ix['max',['roll','pitch','yaw','dS','dL','dP']].plot(kind='bar',ax=axes[2])
     axes[2].set_title('Max measurements')
 
-    fig.savefig(os.path.join(directory,'REST','motion.png'))
+    fig.suptitle("%s" % subjName, fontsize=20)
+    fig.savefig(os.path.join(directory,'REST','%s_motion.png' % subjName))
 
 
 
