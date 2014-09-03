@@ -1,4 +1,17 @@
 #!/Users/admin/anaconda/bin/python
+'''
+------------------------
+2014-09-03
+Kevin Cho
+sky8671@gmail.com
+------------------------
+
+This code is for CCNC MRI raw data structure, obtained from Siemens Trio 3.0T MRI machine.
+
+It moves all modality dicoms under a directory called 'dicom'. Then only the T1, REST, DTI, DKI modalities are converted in nifti format into a new directory.
+
+For the REST modality, the subject motion is also documented into a graph using Afni.
+'''
 
 import textwrap
 import shutil
@@ -12,13 +25,13 @@ import matplotlib.pyplot as plt
 pd.options.display.mpl_style = 'default' #graph option
 
 def main(args):
-    toNifti(args.directory)
-    toAfniFormat(args.directory)
+    to_nifti(args.directory)
+    to_afni_format(args.directory)
     slice_time_correction(args.directory)
-    motionCorrection(args.directory)
-    outputArrange(args.directory)
+    motion_correction(args.directory)
+    output_arrange(args.directory)
 
-def toNifti(directory):
+def to_nifti(directory):
     '''
     If FALSE returns from are_there_nifti function,
     it makes 'dicom' directory under the input dir.
@@ -45,11 +58,10 @@ def toNifti(directory):
             for file_to_move in files_to_move:
                 shutil.move(os.path.join(directory, file_to_move),
                             os.path.join(directory, 'dicom'))
-        except PermissionError as e:
-            print 'Error in the toNifti :', e
-            pass
+        except OSError as e:
+            print 'Error in the to_nifti :', e
         else:
-            print 'Jumped somthing in toNifti function : unknown'
+            print 'Jumped somthing in to_nifti function : unknown'
         dcm2nii_all(directory)
     else:
         print '='*80
@@ -62,9 +74,9 @@ def are_there_nifti(directory):
     Search for .nii.gz files in the user input dir
     '''
     for root, dirs, files in os.walk(directory):
-        for singleFile in files:
-            if re.search('nii.gz$', singleFile, flags=re.IGNORECASE):
-                print singleFile
+        for single_file in files:
+            if re.search('nii.gz$', single_file, flags=re.IGNORECASE):
+                print single_file
                 return True
                 break
     return False
@@ -74,11 +86,11 @@ def dcm2nii_all(directory):
     It uses pp to run dcm2nii jobs in parallel.
     dcm2nii jobs have inputs of the first dicom
     in each directories inside the 'dicom' directory.
-    (returned using getFirstDicom function)
+    (returned using get_first_dicom function)
     '''
 
     job_server = pp.Server()
-    jobList = []
+    job_list = []
     dicom_source_directories = [x for x in os.listdir(
         os.path.join(directory, 'dicom')) \
             if x == 'REST' \
@@ -89,49 +101,49 @@ def dcm2nii_all(directory):
             or x == 'T1']
 
     for dicom_source_directory in dicom_source_directories:
-        niftiOutDir = os.path.join(directory, dicom_source_directory)
+        nifti_out_dir = os.path.join(directory, dicom_source_directory)
         try:
-            os.mkdir(niftiOutDir)
+            os.mkdir(nifti_out_dir)
         except:
             pass
-        firstDicom = getFirstDicom(os.path.join(
+        firstDicom = get_first_dicom(os.path.join(
             directory, 'dicom', dicom_source_directory))
         command = '/ccnc_bin/mricron/dcm2nii \
-                -o {niftiOutDir} {firstDicom}'.format(
-                    niftiOutDir=niftiOutDir,
+                -o {nifti_out_dir} {firstDicom}'.format(
+                    nifti_out_dir=nifti_out_dir,
                     firstDicom=firstDicom)
-        jobList.append(command)
+        job_list.append(command)
 
-    for job in [job_server.submit(run, (x, ), (), ("os", )) for x in jobList]:
+    for job in [job_server.submit(run, (x, ), (), ("os", )) for x in job_list]:
         job()
 
-def run(toDo):
+def run(to_do):
     '''
     Belongs to the pp process
     '''
-    os.popen(toDo).read()
+    os.popen(to_do).read()
 
-def getFirstDicom(directoryAddress):
+def get_first_dicom(dir_address):
     '''
     returns the name of the first dicom file
     in the directory
     '''
-    for root, dirs, files in os.walk(directoryAddress):
-        for singleFile in files:
-            if re.search('.*ima|.*dcm', singleFile, flags=re.IGNORECASE):
+    for root, dirs, files in os.walk(dir_address):
+        for single_file in files:
+            if re.search('.*ima|.*dcm', single_file, flags=re.IGNORECASE):
                 return os.path.abspath(
-                    os.path.join(directoryAddress, singleFile))
+                    os.path.join(dir_address, single_file))
 
-def toAfniFormat(directory):
+def to_afni_format(directory):
     '''
     converts nifti images to afni format
     '''
     for root, dirs, files in os.walk(os.path.join(directory, 'REST')):
-        for singleFile in files:
-            if re.search('nii.gz$', singleFile):
+        for single_file in files:
+            if re.search('nii.gz$', single_file):
                 print '.',
                 command = '3dcopy {restNifti} {afniOut}'.format(
-                    restNifti=os.path.join(root, singleFile),
+                    restNifti=os.path.join(root, single_file),
                     afniOut=os.path.join(root, 'rest'))
                 output = os.popen(command).read()
     print
@@ -150,7 +162,7 @@ def slice_time_correction(directory):
                 restDir=os.path.join(directory, 'REST'))
     output = os.popen(command).read()
 
-def motionCorrection(directory):
+def motion_correction(directory):
     '''
     Uses 3dvolreg
     '''
@@ -165,12 +177,12 @@ def motionCorrection(directory):
     output = os.popen(command).read()
 
 
-def outputArrange(directory):
+def output_arrange(directory):
     print '='*80, '\nMake motion graph in the REST directory\n', '='*80
     if '.' in directory and len(directory) < 3: #if user has given -dir ./
-        subjName = re.search('[A-Z]{3}\d{2,3}', os.getcwd()).group(0)
+        subj_name = re.search('[A-Z]{3}\d{2,3}', os.getcwd()).group(0)
     else:
-        subjName = re.search('[A-Z]{3}\d{2,3}', directory).group(0)
+        subj_name = re.search('[A-Z]{3}\d{2,3}', directory).group(0)
 
     df = pd.read_csv(os.path.join(
         directory, 'REST', 'reg_param.txt'),
@@ -192,8 +204,8 @@ def outputArrange(directory):
                                 kind='bar', ax=axes[2])
     axes[2].set_title('Max measurements')
 
-    fig.suptitle("%s" % subjName, fontsize=20)
-    fig.savefig(os.path.join(directory, 'REST', '%s_motion.png' % subjName))
+    fig.suptitle("%s" % subj_name, fontsize=20)
+    fig.savefig(os.path.join(directory, 'REST', '%s_motion.png' % subj_name))
 
 
 
