@@ -9,7 +9,7 @@ import argparse
 import pp
 import matplotlib.pyplot as plt
 
-pd.options.display.mpl_style = 'default'
+pd.options.display.mpl_style = 'default' #graph option
 
 def main(args):
     toNifti(args.directory)
@@ -25,28 +25,28 @@ def toNifti(directory):
     Then moves all files into the 'dicom'
     (except log.txt and FREESURFER related files)
     '''
-    if are_there_nifti(directory)==False:
-        print '='*80,'\nDcm2nii conversion\n','='*80
+    if are_there_nifti(directory) == False:
+        print '='*80, '\nDcm2nii conversion\n', '='*80
 
         try:
-            os.mkdir(os.path.join(directory,'dicom'))
+            os.mkdir(os.path.join(directory, 'dicom'))
         except OSError as e:
-            print 'Error in making dicom directory : ',e
+            print 'Error in making dicom directory : ', e
 
         files_to_move = [
             x for x in os.listdir(directory) \
                 if x != 'dicom' \
-                and x !='log.txt' \
-                and x !='FREESURFER' \
-                and x !='fsaverage' \
-                and x !='lh.EC_average' \
-                and x !='rh.EC_average']
+                and x != 'log.txt' \
+                and x != 'FREESURFER' \
+                and x != 'fsaverage' \
+                and x != 'lh.EC_average' \
+                and x != 'rh.EC_average']
         try:
             for file_to_move in files_to_move:
-                shutil.move(os.path.join(directory,file_to_move),
-                        os.path.join(directory,'dicom'))
+                shutil.move(os.path.join(directory, file_to_move),
+                            os.path.join(directory, 'dicom'))
         except PermissionError as e:
-            print 'Error in the toNifti :',e
+            print 'Error in the toNifti :', e
             pass
         else:
             print 'Jumped somthing in toNifti function : unknown'
@@ -63,7 +63,7 @@ def are_there_nifti(directory):
     '''
     for root, dirs, files in os.walk(directory):
         for singleFile in files:
-            if re.search('nii.gz$',singleFile,flags=re.IGNORECASE):
+            if re.search('nii.gz$', singleFile, flags=re.IGNORECASE):
                 print singleFile
                 return True
                 break
@@ -77,9 +77,11 @@ def dcm2nii_all(directory):
     (returned using getFirstDicom function)
     '''
 
-    job_server=pp.Server()
-    jobList=[]
-    dicom_source_directories = [x for x in os.listdir(os.path.join(directory,'dicom')) if x == 'REST' \
+    job_server = pp.Server()
+    jobList = []
+    dicom_source_directories = [x for x in os.listdir(
+        os.path.join(directory, 'dicom')) \
+            if x == 'REST' \
             or x == 'DTI' \
             or x == 'DKI' \
             or 'EP2D_BOLD' in x \
@@ -87,21 +89,26 @@ def dcm2nii_all(directory):
             or x == 'T1']
 
     for dicom_source_directory in dicom_source_directories:
-        niftiOutDir = os.path.join(directory,dicom_source_directory)
+        niftiOutDir = os.path.join(directory, dicom_source_directory)
         try:
             os.mkdir(niftiOutDir)
         except:
             pass
-        firstDicom = getFirstDicom(os.path.join(directory,'dicom',dicom_source_directory))
+        firstDicom = getFirstDicom(os.path.join(
+            directory, 'dicom', dicom_source_directory))
         command = '/ccnc_bin/mricron/dcm2nii \
-                -o {niftiOutDir} {firstDicom}'.format(niftiOutDir=niftiOutDir,
-                        firstDicom=firstDicom)
+                -o {niftiOutDir} {firstDicom}'.format(
+                    niftiOutDir=niftiOutDir,
+                    firstDicom=firstDicom)
         jobList.append(command)
 
-    for job in [job_server.submit(run,(x,),(),("os",)) for x in jobList]:
+    for job in [job_server.submit(run, (x, ), (), ("os", )) for x in jobList]:
         job()
 
 def run(toDo):
+    '''
+    Belongs to the pp process
+    '''
     os.popen(toDo).read()
 
 def getFirstDicom(directoryAddress):
@@ -109,80 +116,91 @@ def getFirstDicom(directoryAddress):
     returns the name of the first dicom file
     in the directory
     '''
-    for root,dirs,files in os.walk(directoryAddress):
+    for root, dirs, files in os.walk(directoryAddress):
         for singleFile in files:
-            if re.search('.*ima|.*dcm',singleFile,flags=re.IGNORECASE):
-                return os.path.abspath(os.path.join(directoryAddress,singleFile))
+            if re.search('.*ima|.*dcm', singleFile, flags=re.IGNORECASE):
+                return os.path.abspath(
+                    os.path.join(directoryAddress, singleFile))
 
 def toAfniFormat(directory):
     '''
     converts nifti images to afni format
     '''
-    for root, dirs, files in os.walk(os.path.join(directory,'REST')):
+    for root, dirs, files in os.walk(os.path.join(directory, 'REST')):
         for singleFile in files:
-            if re.search('nii.gz$',singleFile):
+            if re.search('nii.gz$', singleFile):
                 print '.',
                 command = '3dcopy {restNifti} {afniOut}'.format(
-                        restNifti=os.path.join(root,singleFile),
-                        afniOut=os.path.join(root,'rest'))
+                    restNifti=os.path.join(root, singleFile),
+                    afniOut=os.path.join(root, 'rest'))
                 output = os.popen(command).read()
     print
 
 def slice_time_correction(directory):
-    print '='*80,'\nSlice time correction\n','='*80
+    '''
+    Uses afni 3dTshift
+    '''
+    print '='*80, '\nSlice time correction\n', '='*80
     command = '3dTshift \
             -verbose \
             -TR 3.5s \
             -tzero 0 \
             -prefix {restDir}/tShift_rest \
             -tpattern alt+z {restDir}/rest+orig[4..115]'.format(
-                    restDir=os.path.join(directory,'REST'))
+                restDir=os.path.join(directory, 'REST'))
     output = os.popen(command).read()
 
 def motionCorrection(directory):
-    print '='*80,'\nMotion parameter calculation\n','='*80
+    '''
+    Uses 3dvolreg
+    '''
+    print '='*80, '\nMotion parameter calculation\n', '='*80
     command = '3dvolreg \
             -verbose \
             -prefix {restDir}/reg \
             -dfile {restDir}/reg_param.txt \
             -maxdisp1D {restDir}/maxDisp.txt \
             {restDir}/tShift_rest+orig'.format(
-                    restDir=os.path.join(directory,'REST'))
+                restDir=os.path.join(directory, 'REST'))
     output = os.popen(command).read()
 
 
 def outputArrange(directory):
-    print '='*80,'\nMake motion graph in the REST directory\n','='*80
+    print '='*80, '\nMake motion graph in the REST directory\n', '='*80
     if '.' in directory and len(directory) < 3: #if user has given -dir ./
-        subjName = re.search('[A-Z]{3}\d{2,3}',os.getcwd()).group(0)
+        subjName = re.search('[A-Z]{3}\d{2,3}', os.getcwd()).group(0)
     else:
-        subjName = re.search('[A-Z]{3}\d{2,3}',directory).group(0)
+        subjName = re.search('[A-Z]{3}\d{2,3}', directory).group(0)
 
-    df = pd.read_csv(os.path.join(directory,
-        'REST','reg_param.txt'),
-        sep='\s+',
-        index_col=0,
-        names=['roll','pitch','yaw','dS','dL','dP','rmsold','rmnew'])
+    df = pd.read_csv(os.path.join(
+        directory, 'REST', 'reg_param.txt'),
+                     sep='\s+',
+                     index_col=0,
+                     names=['roll', 'pitch', 'yaw', 'dS',
+                            'dL', 'dP', 'rmsold', 'rmnew'])
 
     plt.ioff()
-    fig,axes = plt.subplots(nrows=3,figsize=(15,10))
-    df[['roll','pitch','yaw']].plot(ax=axes[0])
+    fig, axes = plt.subplots(nrows=3, figsize=(15, 10))
+    df[['roll', 'pitch', 'yaw']].plot(ax=axes[0])
     axes[0].set_title('Rotation')
-    df[['dS','dL','dP']].plot(ax=axes[1])
+    df[['dS', 'dL', 'dP']].plot(ax=axes[1])
     axes[1].set_title('Displacement')
     axes[1].set_ylabel('mm')
-    df.abs().describe().ix['max',['roll','pitch','yaw','dS','dL','dP']].plot(kind='bar',ax=axes[2])
+    df.abs().describe().ix['max',
+                           ['roll', 'pitch', 'yaw',
+                            'dS', 'dL', 'dP']].plot(
+                                kind='bar', ax=axes[2])
     axes[2].set_title('Max measurements')
 
     fig.suptitle("%s" % subjName, fontsize=20)
-    fig.savefig(os.path.join(directory,'REST','%s_motion.png' % subjName))
+    fig.savefig(os.path.join(directory, 'REST', '%s_motion.png' % subjName))
 
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            description = textwrap.dedent('''\
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent('''\
             {codeName} : Returns motion parameters
             extracted from dicom within the directory
             ====================
@@ -190,8 +208,8 @@ if __name__=='__main__':
             eg) {codeName} --dir /Users/kevin/NOR04_CKI
             '''.format(codeName=os.path.basename(__file__))))
     parser.add_argument(
-            '-dir','--directory',
-            help='Data directory location, default = pwd',
-            default=os.getcwd())
+        '-dir', '--directory',
+        help='Data directory location, default=pwd',
+        default=os.getcwd())
     args = parser.parse_args()
     main(args)
