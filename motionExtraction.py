@@ -11,24 +11,72 @@ import matplotlib.pyplot as plt
 
 pd.options.display.mpl_style = 'default'
 
+def main(args):
+    toNifti(args.directory)
+    toAfniFormat(args.directory)
+    slice_time_correction(args.directory)
+    motionCorrection(args.directory)
+    outputArrange(args.directory)
+
+def toNifti(directory):
+    '''
+    If FALSE returns from are_there_nifti function,
+    it makes 'dicom' directory under the input dir.
+    Then moves all files into the 'dicom'
+    (except log.txt and FREESURFER related files)
+    '''
+    if are_there_nifti(directory)==False:
+        print '='*80,'\nDcm2nii conversion\n','='*80
+
+        try:
+            os.mkdir(os.path.join(directory,'dicom'))
+        except OSError as e:
+            print 'Error in making dicom directory : ',e
+
+        files_to_move = [
+            x for x in os.listdir(directory) \
+                if x != 'dicom' \
+                and x !='log.txt' \
+                and x !='FREESURFER' \
+                and x !='fsaverage' \
+                and x !='lh.EC_average' \
+                and x !='rh.EC_average']
+        try:
+            for file_to_move in files_to_move:
+                shutil.move(os.path.join(directory,file_to_move),
+                        os.path.join(directory,'dicom'))
+        except PermissionError as e:
+            print 'Error in the toNifti :',e
+            pass
+        else:
+            print 'Jumped somthing in toNifti function : unknown'
+        dcm2nii_all(directory)
+    else:
+        print '='*80
+        print 'There are nifti files in the directory'
+        print 'Jumping the directory rearrange and dicom conversion'
+        print '='*80
+
 def are_there_nifti(directory):
-    check_for_nifti = False
+    '''
+    Search for .nii.gz files in the user input dir
+    '''
     for root, dirs, files in os.walk(directory):
         for singleFile in files:
             if re.search('nii.gz$',singleFile,flags=re.IGNORECASE):
                 print singleFile
                 return True
                 break
-    return check_for_nifti
-
-
-def getFirstDicom(directoryAddress):
-    for root,dirs,files in os.walk(directoryAddress):
-        for singleFile in files:
-            if re.search('.*ima|.*dcm',singleFile,flags=re.IGNORECASE):
-                return os.path.abspath(os.path.join(directoryAddress,singleFile))
+    return False
 
 def dcm2nii_all(directory):
+    '''
+    It uses pp to run dcm2nii jobs in parallel.
+    dcm2nii jobs have inputs of the first dicom
+    in each directories inside the 'dicom' directory.
+    (returned using getFirstDicom function)
+    '''
+
     job_server=pp.Server()
     jobList=[]
     dicom_source_directories = [x for x in os.listdir(os.path.join(directory,'dicom')) if x == 'REST' \
@@ -37,6 +85,7 @@ def dcm2nii_all(directory):
             or 'EP2D_BOLD' in x \
             or 'RUN' in x \
             or x == 'T1']
+
     for dicom_source_directory in dicom_source_directories:
         niftiOutDir = os.path.join(directory,dicom_source_directory)
         try:
@@ -52,55 +101,35 @@ def dcm2nii_all(directory):
     for job in [job_server.submit(run,(x,),(),("os",)) for x in jobList]:
         job()
 
-
 def run(toDo):
     os.popen(toDo).read()
 
-
-def toNifti(directory):
-    check_for_nifti = are_there_nifti(directory) #TRUE if there are nifti
-
-    #if there is no nifti
-    if check_for_nifti==False:
-        print 'dcm2nii conversion'
-        #move all directories inside 'dicom'
-        try:
-            os.mkdir(os.path.join(directory,'dicom'))
-            modalityDirectories = [x for x in os.listdir(directory) if x != 'dicom' \
-                    and x !='log.txt' \
-                    and x !='FREESURFER' \
-                    and x !='fsaverage' \
-                    and x !='lh.EC_average' \
-                    and x !='rh.EC_average']
-            for modality_directory in modalityDirectories:
-                shutil.move(os.path.join(directory,modality_directory),
-                        os.path.join(directory,'dicom'))
-        except PermissionError as e:
-            print 'Error in the toNifti :',e
-            pass
-        else:
-            print 'Error in the toNifti : unknown'
-
-
-        dcm2nii_all(directory)
-
-def main(args):
-    toNifti(args.directory)
-    toAfniFormat(args.directory)
-    slice_time_correction(args.directory)
-    motionCorrection(args.directory)
-    outputArrange(args.directory)
+def getFirstDicom(directoryAddress):
+    '''
+    returns the name of the first dicom file
+    in the directory
+    '''
+    for root,dirs,files in os.walk(directoryAddress):
+        for singleFile in files:
+            if re.search('.*ima|.*dcm',singleFile,flags=re.IGNORECASE):
+                return os.path.abspath(os.path.join(directoryAddress,singleFile))
 
 def toAfniFormat(directory):
+    '''
+    converts nifti images to afni format
+    '''
     for root, dirs, files in os.walk(os.path.join(directory,'REST')):
         for singleFile in files:
             if re.search('nii.gz$',singleFile):
+                print '.',
                 command = '3dcopy {restNifti} {afniOut}'.format(
                         restNifti=os.path.join(root,singleFile),
                         afniOut=os.path.join(root,'rest'))
-                os.popen(command).read()
+                output = os.popen(command).read()
+    print
 
 def slice_time_correction(directory):
+    print '='*80,'\nSlice time correction\n','='*80
     command = '3dTshift \
             -verbose \
             -TR 3.5s \
@@ -108,9 +137,10 @@ def slice_time_correction(directory):
             -prefix {restDir}/tShift_rest \
             -tpattern alt+z {restDir}/rest+orig[4..115]'.format(
                     restDir=os.path.join(directory,'REST'))
-    os.popen(command).read()
+    output = os.popen(command).read()
 
 def motionCorrection(directory):
+    print '='*80,'\nMotion parameter calculation\n','='*80
     command = '3dvolreg \
             -verbose \
             -prefix {restDir}/reg \
@@ -118,11 +148,12 @@ def motionCorrection(directory):
             -maxdisp1D {restDir}/maxDisp.txt \
             {restDir}/tShift_rest+orig'.format(
                     restDir=os.path.join(directory,'REST'))
-    os.popen(command).read()
+    output = os.popen(command).read()
 
 
 def outputArrange(directory):
-    if '.' in directory: #if user has given -dir ./
+    print '='*80,'\nMake motion graph in the REST directory\n','='*80
+    if '.' in directory and len(directory) < 3: #if user has given -dir ./
         subjName = re.search('[A-Z]{3}\d{2,3}',os.getcwd()).group(0)
     else:
         subjName = re.search('[A-Z]{3}\d{2,3}',directory).group(0)
@@ -149,15 +180,18 @@ def outputArrange(directory):
 
 
 if __name__=='__main__':
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+    parser = argparse.ArgumentParser(
+            formatter_class=argparse.RawDescriptionHelpFormatter,
             description = textwrap.dedent('''\
-                    {codeName} : Returns motion parameters extracted from dicom within the directory
-                    ====================
-                        eg) {codeName}
-                        eg) {codeName} --dir /Users/kevin/NOR04_CKI
-                    '''.format(codeName=os.path.basename(__file__))))
-
-            #epilog="By Kevin, 26th May 2014")
-    parser.add_argument('-dir','--directory',help='Data directory location, default = pwd',default=os.getcwd())
+            {codeName} : Returns motion parameters
+            extracted from dicom within the directory
+            ====================
+            eg) {codeName}
+            eg) {codeName} --dir /Users/kevin/NOR04_CKI
+            '''.format(codeName=os.path.basename(__file__))))
+    parser.add_argument(
+            '-dir','--directory',
+            help='Data directory location, default = pwd',
+            default=os.getcwd())
     args = parser.parse_args()
     main(args)
