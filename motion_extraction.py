@@ -65,8 +65,8 @@ def to_nifti(directory):
         dcm2nii_all(directory)
     else:
         print '='*80
-        print 'There are nifti files in the directory'
-        print 'Jumping the directory rearrange and dicom conversion'
+        print '\tThere are nifti files in the directory'
+        print '\tJumping the directory rearrange and dicom conversion'
         print '='*80
 
 def are_there_nifti(directory):
@@ -112,6 +112,7 @@ def dcm2nii_all(directory):
                 -o {nifti_out_dir} {firstDicom}'.format(
                     nifti_out_dir=nifti_out_dir,
                     firstDicom=firstDicom)
+        print '\t', re.sub('\s+', ' ', command)
         job_list.append(command)
 
     for job in [job_server.submit(run, (x, ), (), ("os", )) for x in job_list]:
@@ -138,15 +139,20 @@ def to_afni_format(directory):
     '''
     converts nifti images to afni format
     '''
-    for root, dirs, files in os.walk(os.path.join(directory, 'REST')):
-        for single_file in files:
-            if re.search('nii.gz$', single_file):
-                print '.',
-                command = '3dcopy {restNifti} {afniOut}'.format(
-                    restNifti=os.path.join(root, single_file),
-                    afniOut=os.path.join(root, 'rest'))
-                output = os.popen(command).read()
-    print
+    print '='*80, '\nNifti to afni brick\n', '='*80
+
+    if os.path.isfile(os.path.join(directory, 'REST', 'rest+orig.BRIK')):
+        print '\tAlready done'
+    else:
+        for root, dirs, files in os.walk(os.path.join(directory, 'REST')):
+            for single_file in files:
+                if re.search('nii.gz$', single_file):
+                    command = '3dcopy {restNifti} {afniOut}'.format(
+                        restNifti=os.path.join(root, single_file),
+                        afniOut=os.path.join(root, 'rest'))
+                    print '-'*80, '\n', re.sub('\s+', ' ', command)
+                    print '-'*80
+                    output = os.popen(command).read()
 
 def slice_time_correction(directory):
     '''
@@ -160,7 +166,11 @@ def slice_time_correction(directory):
             -prefix {restDir}/tShift_rest \
             -tpattern alt+z {restDir}/rest+orig[4..115]'.format(
                 restDir=os.path.join(directory, 'REST'))
-    output = os.popen(command).read()
+    if os.path.isfile(os.path.join(directory, 'REST', 'rest+orig.BRIK')):
+        print '\tAlready done'
+    else:
+        print '-'*80, '\n', re.sub('\s+', ' ', command), '\n', '-'*80
+        output = os.popen(command).read()
 
 def motion_correction(directory):
     '''
@@ -174,7 +184,11 @@ def motion_correction(directory):
             -maxdisp1D {restDir}/maxDisp.txt \
             {restDir}/tShift_rest+orig'.format(
                 restDir=os.path.join(directory, 'REST'))
-    output = os.popen(command).read()
+    if os.path.isfile(os.path.join(directory, 'REST', 'maxDisp.txt')):
+        print '\tAlready done'
+    else:
+        print '-'*80, '\n', re.sub('\s+', ' ', command), '\n', '-'*80
+        output = os.popen(command).read()
 
 
 def output_arrange(directory):
@@ -191,18 +205,40 @@ def output_arrange(directory):
                      names=['roll', 'pitch', 'yaw', 'dS',
                             'dL', 'dP', 'rmsold', 'rmnew'])
 
+    maxdisp_df = pd.read_csv(os.path.join(
+        directory, 'REST', 'maxDisp.txt'),
+                             sep='\s+',
+                             skiprows=[0,1],
+                             names=['maxDisp'])
+
     plt.ioff()
-    fig, axes = plt.subplots(nrows=3, figsize=(15, 10))
-    df[['roll', 'pitch', 'yaw']].plot(ax=axes[0])
-    axes[0].set_title('Rotation')
-    df[['dS', 'dL', 'dP']].plot(ax=axes[1])
-    axes[1].set_title('Displacement')
-    axes[1].set_ylabel('mm')
-    df.abs().describe().ix['max',
-                           ['roll', 'pitch', 'yaw',
-                            'dS', 'dL', 'dP']].plot(
-                                kind='bar', ax=axes[2])
-    axes[2].set_title('Max measurements')
+    fig = plt.figure(figsize=(12, 8))
+    ax1 = plt.subplot(221)
+    ax2 = plt.subplot(223)
+    ax3 = plt.subplot(122)
+
+    ax1.grid(False)
+    ax2.grid(False)
+    ax3.grid(False)
+
+    df[['roll', 'pitch', 'yaw']].plot(ax=ax1,grid=False)
+    ax1.set_title('Rotation')
+    ax1.set_xlabel('Time points')
+    ax2.set_ylabel('degree')
+
+    df[['dS', 'dL', 'dP']].plot(ax=ax2,grid=False)
+    ax2.set_title('Displacement')
+    ax2.set_xlabel('Time points')
+    ax2.set_ylabel('mm')
+
+    maxdisp_df.plot(ax=ax3,grid=False)
+    ax3.set_title('Maximum displacements')
+    ax3.set_xlabel('Time points')
+    ax3.set_ylabel('mm')
+    #df.abs().describe().ix['max',
+                           #['roll', 'pitch', 'yaw',
+                            #'dS', 'dL', 'dP']].plot(
+                                #kind='bar', ax=axes[2])
 
     fig.suptitle("%s" % subj_name, fontsize=20)
     fig.savefig(os.path.join(directory, 'REST', '%s_motion.png' % subj_name))

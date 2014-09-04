@@ -10,6 +10,14 @@ It *moves all* modality dicoms under a directory called 'dicom'. Then *only the 
 
 * For the REST modality, the subject motion is also documented into a graph using Afni.
 
+###External dependencies
+
+matplotlib
+    \-pyplot (motion_extraction)
+pandas (motion_extraction)
+pp (motion_extraction)
+
+
 ###usage: 
 ```
 motionExtraction.py [-h] [-dir DIRECTORY]
