@@ -6,11 +6,11 @@ Kevin Cho
 sky8671@gmail.com
 ------------------------
 
-This code is for CCNC MRI raw data structure, obtained from Siemens Trio 3.0T MRI machine.
-
-It moves all modality dicoms under a directory called 'dicom'. Then only the T1, REST, DTI, DKI modalities are converted in nifti format into a new directory.
-
-For the REST modality, the subject motion is also documented into a graph using Afni.
+This code is for CCNC MRI raw data structure, obtained from Siemens Trio 3.0T
+MRI machine. It moves all modality dicoms under a directory called 'dicom'.
+Then only the T1, REST, DTI, DKI modalities are converted in nifti format
+into a new directory. For the REST modality, the subject motion is also
+documented into a graph using Afni.
 '''
 
 import textwrap
@@ -25,20 +25,22 @@ import matplotlib.pyplot as plt
 pd.options.display.mpl_style = 'default' #graph option
 
 def main(args):
-    to_nifti(args.directory)
+    to_nifti(args.directory,args.rest)
     to_afni_format(args.directory)
     slice_time_correction(args.directory)
     motion_correction(args.directory)
-    output_arrange(args.directory)
 
-def to_nifti(directory):
+    if args.graph:
+        make_graph(args.directory)
+
+def to_nifti(directory, one_level_only):
     '''
     If FALSE returns from are_there_nifti function,
     it makes 'dicom' directory under the input dir.
     Then moves all files into the 'dicom'
     (except log.txt and FREESURFER related files)
     '''
-    if are_there_nifti(directory) == False:
+    if are_there_nifti(directory, one_level_only) == False:
         print '='*80, '\nDcm2nii conversion\n', '='*80
 
         try:
@@ -62,26 +64,32 @@ def to_nifti(directory):
             print 'Error in the to_nifti :', e
         else:
             print 'Jumped somthing in to_nifti function : unknown'
-        dcm2nii_all(directory)
+        dcm2nii_all(directory,one_level_only)
     else:
         print '='*80
         print '\tThere are nifti files in the directory'
         print '\tJumping the directory rearrange and dicom conversion'
         print '='*80
 
-def are_there_nifti(directory):
+
+def are_there_nifti(directory, one_level_only):
     '''
     Search for .nii.gz files in the user input dir
     '''
-    for root, dirs, files in os.walk(directory):
-        for single_file in files:
-            if re.search('nii.gz$', single_file, flags=re.IGNORECASE):
-                print single_file
-                return True
-                break
+    if one_level_only and \
+       re.search('nii.gz$', ' '.join(os.listdir(directory))):
+        return True
+    else:
+        for root, dirs, files in os.walk(directory):
+            for single_file in files:
+                if re.search('nii.gz$', single_file, flags=re.IGNORECASE):
+                    print single_file
+                    return True
+                    break
     return False
 
-def dcm2nii_all(directory):
+
+def dcm2nii_all(directory,one_level_only):
     '''
     It uses pp to run dcm2nii jobs in parallel.
     dcm2nii jobs have inputs of the first dicom
@@ -91,14 +99,20 @@ def dcm2nii_all(directory):
 
     job_server = pp.Server()
     job_list = []
-    dicom_source_directories = [x for x in os.listdir(
-        os.path.join(directory, 'dicom')) \
-            if x == 'REST' \
-            or x == 'DTI' \
-            or x == 'DKI' \
-            or 'EP2D_BOLD' in x \
-            or 'RUN' in x \
-            or x == 'T1']
+
+    if one_level_only:
+        dicom_source_directories = os.path.join(
+            directory,
+            'dicom')
+    else:
+        dicom_source_directories = [x for x in os.listdir(
+            os.path.join(directory, 'dicom')) \
+                if x == 'REST' \
+                or x == 'DTI' \
+                or x == 'DKI' \
+                or 'EP2D_BOLD' in x \
+                or 'RUN' in x \
+                or x == 'T1']
 
     for dicom_source_directory in dicom_source_directories:
         nifti_out_dir = os.path.join(directory, dicom_source_directory)
@@ -191,7 +205,7 @@ def motion_correction(directory):
         output = os.popen(command).read()
 
 
-def output_arrange(directory):
+def make_graph(directory):
     print '='*80, '\nMake motion graph in the REST directory\n', '='*80
     if '.' in directory and len(directory) < 3: #if user has given -dir ./
         subj_name = re.search('[A-Z]{3}\d{2,3}', os.getcwd()).group(0)
@@ -259,5 +273,13 @@ if __name__ == '__main__':
         '-dir', '--directory',
         help='Data directory location, default=pwd',
         default=os.getcwd())
+    parser.add_argument(
+        '-g', '--graph',
+        help='Produce graph in png format',
+        default=True)
+    parser.add_argument(
+        '-r', '--rest',
+        help='Process the dicoms directly under the input dir',
+        default=False)
     args = parser.parse_args()
     main(args)
