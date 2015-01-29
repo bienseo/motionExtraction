@@ -1,4 +1,4 @@
-#!/Users/admin/anaconda/bin/python
+#!/usr/bin/python
 '''
 ------------------------
 2014-09-03
@@ -180,7 +180,7 @@ def slice_time_correction(directory):
             -prefix {restDir}/tShift_rest \
             -tpattern alt+z {restDir}/rest+orig[4..115]'.format(
                 restDir=os.path.join(directory, 'REST'))
-    if os.path.isfile(os.path.join(directory, 'REST', 'rest+orig.BRIK')):
+    if os.path.isfile(os.path.join(directory, 'REST', 'tShift_rest.BRIK')):
         print '\tAlready done'
     else:
         print '-'*80, '\n', re.sub('\s+', ' ', command), '\n', '-'*80
