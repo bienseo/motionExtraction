@@ -22,7 +22,6 @@ import argparse
 import pp
 import matplotlib.pyplot as plt
 
-pd.options.display.mpl_style = 'default' #graph option
 
 def main(args):
     to_nifti(args.directory,args.rest)
