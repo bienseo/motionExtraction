@@ -23,8 +23,8 @@ import pp
 import matplotlib.pyplot as plt
 
 
-def main(directory, graph, rest):
-    to_nifti(directory,rest)
+def main(directory, graph, rest, one_level_only):
+    to_nifti(directory,one_level_only)
     to_afni_format(directory)
     slice_time_correction(directory)
     motion_correction(directory)
@@ -88,7 +88,7 @@ def are_there_nifti(directory, one_level_only):
     return False
 
 
-def dcm2nii_all(directory,one_level_only):
+def dcm2nii_all(directory, one_level_only):
     '''
     It uses pp to run dcm2nii jobs in parallel.
     dcm2nii jobs have inputs of the first dicom
@@ -280,6 +280,11 @@ if __name__ == '__main__':
         '-r', '--rest',
         help='Process the dicoms directly under the input dir',
         default=False)
+    parser.add_argument(
+        '-o', '--one',
+        help='Process the dicoms directly under the input dir',
+        action='store_true',
+        default=False)
     args = parser.parse_args()
 
-    main(args.directory, args.graph, args.rest)
+    main(args.directory, args.graph, args.rest, args.one)
