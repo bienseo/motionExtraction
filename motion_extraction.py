@@ -114,6 +114,8 @@ def dcm2nii_all(directory, one_level_only):
                 or x == 'T1']
 
     for dicom_source_directory in dicom_source_directories:
+        print dicom_source_directory
+
         nifti_out_dir = os.path.join(directory, dicom_source_directory)
         try:
             os.mkdir(nifti_out_dir)
