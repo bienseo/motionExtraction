@@ -23,14 +23,14 @@ import pp
 import matplotlib.pyplot as plt
 
 
-def main(args):
-    to_nifti(args.directory,args.rest)
-    to_afni_format(args.directory)
-    slice_time_correction(args.directory)
-    motion_correction(args.directory)
+def main(directory, graph, rest):
+    to_nifti(directory,rest)
+    to_afni_format(directory)
+    slice_time_correction(directory)
+    motion_correction(directory)
 
-    if args.graph:
-        make_graph(args.directory)
+    if graph:
+        make_graph(directory)
 
 def to_nifti(directory, one_level_only):
     '''
@@ -281,4 +281,5 @@ if __name__ == '__main__':
         help='Process the dicoms directly under the input dir',
         default=False)
     args = parser.parse_args()
-    main(args)
+
+    main(args.directory, args.graph, args.rest)
