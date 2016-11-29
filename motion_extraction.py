@@ -22,6 +22,7 @@ import argparse
 import pp
 import matplotlib.pyplot as plt
 
+plt.style.use('ggplot')
 
 def main(directory, graph, rest, one_level_only):
     to_nifti(directory,one_level_only)
@@ -208,10 +209,13 @@ def motion_correction(directory):
 
 def make_graph(directory):
     print '='*80, '\nMake motion graph in the REST directory\n', '='*80
-    if '.' in directory and len(directory) < 3: #if user has given -dir ./
-        subj_name = re.search('[A-Z]{3}\d{2,3}', os.getcwd()).group(0)
-    else:
-        subj_name = re.search('[A-Z]{3}\d{2,3}', directory).group(0)
+    try:
+        if '.' in directory and len(directory) < 3: #if user has given -dir ./
+            subj_name = re.search('[A-Z]{3}\d{2,3}', os.getcwd()).group(0)
+        else:
+            subj_name = re.search('[A-Z]{3}\d{2,3}', directory).group(0)
+    except:
+        subj_name = os.path.basename(directory)
 
     df = pd.read_csv(os.path.join(
         directory, 'REST', 'reg_param.txt'),
@@ -227,7 +231,7 @@ def make_graph(directory):
                              names=['maxDisp'])
 
     plt.ioff()
-    fig = plt.figure(figsize=(12, 8))
+    fig = plt.figure(figsize=(12, 10))
     ax1 = plt.subplot(221)
     ax2 = plt.subplot(223)
     ax3 = plt.subplot(122)
@@ -257,8 +261,6 @@ def make_graph(directory):
 
     fig.suptitle("%s" % subj_name, fontsize=20)
     fig.savefig(os.path.join(directory, 'REST', '%s_motion.png' % subj_name))
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
