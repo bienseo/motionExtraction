@@ -124,8 +124,12 @@ def dcm2nii_all(directory, one_level_only):
             pass
         firstDicom = get_first_dicom(os.path.join(
             directory, 'dicom', dicom_source_directory))
-        command = '/ccnc_bin/mricron/dcm2nii \
+        command = '/usr/local/bin/dcm2niix \
+                -f {modality}_%t_%n \
+                -x y \
+                -z y \
                 -o {nifti_out_dir} {firstDicom}'.format(
+                    modality=dicom_source_directory,        
                     nifti_out_dir=nifti_out_dir,
                     firstDicom=firstDicom)
         print '\t', re.sub('\s+', ' ', command)
